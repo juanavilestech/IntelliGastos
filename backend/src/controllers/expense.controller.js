@@ -1,49 +1,34 @@
 const expenseService = require("../services/expense.service");
+const asyncHandler = require("../middlewares/asyncHandler");
 
-exports.getAll = async (req, res) => {
-  try {
-    const data = await expenseService.getAll();
-    res.json(data);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
+exports.findAll = asyncHandler(async (req, res) => {
+  const data = await expenseService.findAll();
 
-exports.getById = async (req, res) => {
-  try {
-    const data = await expenseService.getById(req.params.id);
-    res.json(data);
-  } catch (error) {
-    res.status(404).json({ error: error.message });
-  }
-};
+  res.json(data);
+});
 
-exports.create = async (req, res) => {
-  try {
-    const data = await expenseService.create(req.body);
-    res.status(201).json(data);
-  } catch (error) {
-    res.status(400).json({ error: error.message });
-  }
-};
+exports.findById = asyncHandler(async (req, res) => {
+  const data = await expenseService.findById(req.params.id);
 
-exports.update = async (req, res) => {
-  try {
-    const data = await expenseService.update(
-      req.params.id,
-      req.body
-    );
-    res.json(data);
-  } catch (error) {
-    res.status(404).json({ error: error.message });
-  }
-};
+  res.json(data);
+});
 
-exports.remove = async (req, res) => {
-  try {
-    await expenseService.remove(req.params.id);
-    res.json({ message: "Expense deleted" });
-  } catch (error) {
-    res.status(404).json({ error: error.message });
-  }
-};
+exports.create = asyncHandler(async (req, res) => {
+  const data = await expenseService.create(req.body);
+
+  res.status(201).json(data);
+});
+
+exports.update = asyncHandler(async (req, res) => {
+  const data = await expenseService.update(req.params.id, req.body);
+
+  res.json(data);
+});
+
+exports.remove = asyncHandler(async (req, res) => {
+  await expenseService.remove(req.params.id);
+
+  res.json({
+    message: "Expense deleted",
+  });
+});

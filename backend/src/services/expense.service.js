@@ -1,41 +1,55 @@
 const Expense = require("../models/expense.model");
+const AppError = require("../utils/AppError");
+const { expenseSchema } = require("../schemas/expense.schema");
 
-exports.getAll = async () => {
-  return await Expense.findAll();
+exports.findAll = async () => {
+  const expenses = await Expense.findAll();
+
+  return expenses;
 };
 
-exports.getById = async (id) => {
+exports.findById = async (id) => {
   const expense = await Expense.findById(id);
+
   if (!expense) {
-    throw new Error("Expense not found");
+    throw new AppError("Expense not found", 404);
   }
+
   return expense;
 };
 
 exports.create = async (data) => {
-  if (!data.amount || !data.category || !data.date) {
-    throw new Error("Missing required fields");
-  }
+  // Validar con Zod
+  const validatedData = expenseSchema.parse(data);
 
-  if (isNaN(data.amount)) {
-    throw new Error("Amount must be a number");
-  }
+  const newExpense = await Expense.create(validatedData);
 
-  return await Expense.create(data);
+  return newExpense;
 };
 
 exports.update = async (id, data) => {
-  const updated = await Expense.update(id, data);
-  if (!updated) {
-    throw new Error("Expense not found");
+  // Validar con Zod
+  const validatedData = expenseSchema.parse(data);
+
+  const existingExpense = await Expense.findById(id);
+
+  if (!existingExpense) {
+    throw new AppError("Expense not found", 404);
   }
-  return updated;
+
+  const updatedExpense = await Expense.update(id, validatedData);
+
+  return updatedExpense;
 };
 
 exports.remove = async (id) => {
-  const deleted = await Expense.remove(id);
-  if (!deleted) {
-    throw new Error("Expense not found");
+  const existingExpense = await Expense.findById(id);
+
+  if (!existingExpense) {
+    throw new AppError("Expense not found", 404);
   }
-  return deleted;
+
+  await Expense.remove(id);
+
+  return true;
 };
