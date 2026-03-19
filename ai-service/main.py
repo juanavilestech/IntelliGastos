@@ -34,12 +34,12 @@ async def analyze_expenses(request: AnalysisRequest):
         return {"summary": "No hay gastos registrados", "advice": "¡Empieza registrando un gasto!"}
 
     total = sum(e.amount for e in request.expenses)
-    categories = {}
+    categories: dict[str, float] = {}
     for e in request.expenses:
-        categories[e.category] = categories.get(e.category, 0) + e.amount
+        categories[e.category] = categories.get(e.category, 0.0) + e.amount
     
     # Simple advice logic
-    top_category = max(categories, key=categories.get)
+    top_category = max(categories, key=lambda k: categories[k]) if categories else "N/A"
     
     if total > 1000:
         advice = f"Tus gastos totales (${total:.2f}) son elevados. Tu mayor gasto es en '{top_category}'. ¿Podrías reducirlo?"

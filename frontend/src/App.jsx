@@ -254,7 +254,7 @@ function App() {
                           <p className="expense-desc">{expense.description}</p>
                           <p className="expense-meta">{expense.category} • {expense.date}</p>
                         </div>
-                        <p className="expense-amount-mini">-${expense.amount.toFixed(2)}</p>
+                        <p className="expense-amount-mini">-${Number(expense.amount || 0).toFixed(2)}</p>
                       </div>
                     ))}
                  </div>
