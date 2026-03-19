@@ -1,6 +1,7 @@
 const express = require("express");
 const pool = require("./config/db");
-const expenseRoutes = require("./routes/expense.routes")
+const expenseRoutes = require("./routes/expense.routes");
+const categoryRoutes = require("./routes/category.routes");
 
 const cors = require("cors");
 const app = express();
@@ -19,6 +20,7 @@ app.get("/test-db", async (req, res)=>{
 });
 
 app.use("/expenses", expenseRoutes);
+app.use("/categories", categoryRoutes);
 
 module.exports = app;
 

@@ -1,4 +1,4 @@
-import { getExpenses, createExpense } from "./api";
+import { getExpenses, createExpense, getCategories } from "./api";
 import React, { useState, useEffect } from "react";
 import "./App.css";
 import { 
@@ -29,30 +29,33 @@ import {
 } from 'recharts';
 import { motion, AnimatePresence } from 'framer-motion';
 
-// Mock Data for the chart
 const mockChartData = [
-  { name: 'Lun', value: 400 },
-  { name: 'Mar', value: 300 },
-  { name: 'Mie', value: 600 },
-  { name: 'Jue', value: 200 },
-  { name: 'Vie', value: 500 },
-  { name: 'Sab', value: 900 },
-  { name: 'Dom', value: 400 },
+  { name: 'Lun', value: 0 },
+  { name: 'Mar', value: 0 },
+  { name: 'Mie', value: 0 },
+  { name: 'Jue', value: 0 },
+  { name: 'Vie', value: 0 },
+  { name: 'Sab', value: 0 },
+  { name: 'Dom', value: 0 },
 ];
 
 function App() {
   const [activeTab, setActiveTab] = useState('dashboard');
   const [showAddModal, setShowAddModal] = useState(false);
   const [expenses, setExpenses] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
-
-  const categories = ["Comida", "Transporte", "Hogar", "Entretenimiento", "Salud", "Otros"];
+  const [modalType, setModalType] = useState('gasto');
 
   useEffect(() => {
     const fetchData = async () => {
       setIsLoading(true);
-      const data = await getExpenses();
-      setExpenses(data);
+      const [expensesData, categoriesData] = await Promise.all([
+        getExpenses(),
+        getCategories()
+      ]);
+      setExpenses(expensesData);
+      setCategories(categoriesData);
       setIsLoading(false);
     };
     fetchData();
@@ -66,20 +69,58 @@ function App() {
       category: formData.get("category"),
       description: formData.get("description"),
       date: formData.get("date"),
+      type: modalType,
     };
 
     try {
       const savedExpense = await createExpense(expenseData);
       setExpenses([savedExpense, ...expenses]);
       setShowAddModal(false);
+      setModalType('gasto'); // Reset
     } catch (error) {
-       alert("Error al guardar el gasto");
+       alert("Error al guardar la transacción");
     }
   };
 
+  const totalIncomes = expenses.filter(e => e.type === 'ingreso').reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+  const totalExpenses = expenses.filter(e => e.type === 'gasto' || !e.type).reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
+  const balance = totalIncomes - totalExpenses;
+
+  const getChartData = () => {
+    if (expenses.length === 0) return mockChartData;
+    const dayNames = ['Dom', 'Lun', 'Mar', 'Mie', 'Jue', 'Vie', 'Sab'];
+    const dataMap = dayNames.reduce((acc, day) => ({ ...acc, [day]: 0 }), {});
+    
+    expenses.forEach(expense => {
+      const date = new Date(expense.date);
+      const dayName = dayNames[date.getDay()];
+      const multiplier = expense.type === 'ingreso' ? 1 : -1;
+      dataMap[dayName] = (dataMap[dayName] || 0) + (Number(expense.amount) * multiplier);
+    });
+
+    return dayNames.slice(1).concat(dayNames[0]).map(name => ({
+      name,
+      value: dataMap[name]
+    }));
+  };
+
+  const chartData = getChartData();
+
+  const formatDate = (dateStr) => {
+    if (!dateStr) return "";
+    const date = new Date(dateStr);
+    const localDate = new Date(date.getTime() + date.getTimezoneOffset() * 60000);
+    return localDate.toLocaleDateString('es-ES', { 
+      day: '2-digit', 
+      month: '2-digit', 
+      year: 'numeric' 
+    });
+  };
+
+  const filteredCategories = categories.filter(c => c.type === modalType);
+
   return (
     <div className="app-container">
-      {/* Sidebar */}
       <aside className="sidebar glass overflow-hidden">
         <div className="sidebar-header">
           <div className="logo">
@@ -105,18 +146,13 @@ function App() {
             onClick={() => setActiveTab('expenses')}
           >
             <ListOrdered size={20} />
-            <span>Gastos</span>
+            <span>Movimientos</span>
             {activeTab === 'expenses' && <motion.div layoutId="nav-active" className="nav-active-pill" />}
           </button>
           
           <button className="nav-item">
             <BarChart3 size={20} />
             <span>Reportes</span>
-          </button>
-
-          <button className="nav-item">
-            <Target size={20} />
-            <span>Objetivos</span>
           </button>
         </nav>
 
@@ -131,7 +167,6 @@ function App() {
         </div>
       </aside>
 
-      {/* Main Content */}
       <main className="main-content">
         <header className="top-bar">
           <div className="welcome-section">
@@ -142,71 +177,55 @@ function App() {
           <div className="action-buttons">
             <button className="btn btn-primary glow-purple" onClick={() => setShowAddModal(true)}>
               <Plus size={20} />
-              <span>Nuevo Gasto</span>
+              <span>Nueva Transacción</span>
             </button>
           </div>
         </header>
 
         {activeTab === 'dashboard' && (
           <div className="dashboard-view animate-fade-in">
-            {/* Stats Overview */}
-            <div className="stats-grid">
-               <motion.div 
-                 whileHover={{ y: -5 }}
-                 className="stat-card glass"
-               >
+            <div className="stats-grid simplified">
+               <motion.div whileHover={{ y: -5 }} className="stat-card glass incomes">
                  <div className="stat-icon-wrapper purple">
-                    <TrendingDown size={24} />
+                    <ArrowUpRight size={24} />
                  </div>
                  <div className="stat-info">
-                   <p className="text-secondary">Gasto Mensual</p>
-                   <h3>$1,250.00</h3>
-                   <span className="trend-up">+5.2% vs mes anterior</span>
+                   <p className="text-secondary">Ingresos</p>
+                   <h3>${totalIncomes.toLocaleString('es-ES', { minimumFractionDigits: 2 })}</h3>
                  </div>
                </motion.div>
 
-               <motion.div 
-                 whileHover={{ y: -5 }}
-                 className="stat-card glass"
-               >
+               <motion.div whileHover={{ y: -5 }} className="stat-card glass expenses">
+                 <div className="stat-icon-wrapper rose">
+                    <TrendingDown size={24} />
+                 </div>
+                 <div className="stat-info">
+                   <p className="text-secondary">Gastos</p>
+                   <h3>${totalExpenses.toLocaleString('es-ES', { minimumFractionDigits: 2 })}</h3>
+                 </div>
+               </motion.div>
+
+               <motion.div whileHover={{ y: -5 }} className="stat-card glass balance">
                  <div className="stat-icon-wrapper cyan">
                     <CreditCard size={24} />
                  </div>
                  <div className="stat-info">
-                   <p className="text-secondary">Transacciones</p>
-                   <h3>43</h3>
-                   <span className="trend-up">+12 este mes</span>
-                 </div>
-               </motion.div>
-
-               <motion.div 
-                 whileHover={{ y: -5 }}
-                 className="stat-card glass"
-               >
-                 <div className="stat-icon-wrapper rose">
-                    <TrendingUp size={24} />
-                 </div>
-                 <div className="stat-info">
-                   <p className="text-secondary">Ahorros</p>
-                   <h3>$850.00</h3>
-                   <span className="trend-down">-2.1%</span>
+                   <p className="text-secondary">Resumen</p>
+                   <h3 style={{ color: balance >= 0 ? '#10b981' : '#f43f5e' }}>
+                     ${balance.toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                   </h3>
                  </div>
                </motion.div>
             </div>
 
-            {/* Chart + Recent Activity */}
             <div className="dashboard-grid">
                <div className="chart-section glass">
                  <div className="section-header">
-                   <h2>Análisis Visual</h2>
-                   <div className="time-filters">
-                      <button className="small-filter active">Semanal</button>
-                      <button className="small-filter">Mensual</button>
-                   </div>
+                   <h2>Tendencia Diaria</h2>
                  </div>
                  <div className="chart-container" style={{ height: 300, width: '100%', minHeight: 300 }}>
                     <ResponsiveContainer width="100%" height="100%">
-                      <AreaChart data={mockChartData}>
+                      <AreaChart data={chartData}>
                         <defs>
                           <linearGradient id="colorValue" x1="0" y1="0" x2="0" y2="1">
                             <stop offset="5%" stopColor="#8b5cf6" stopOpacity={0.3}/>
@@ -243,20 +262,28 @@ function App() {
 
                <div className="recent-activity glass">
                  <div className="section-header">
-                   <h2>Últimos Gastos</h2>
+                   <h2>Últimos Movimientos</h2>
                    <button className="view-all" onClick={() => setActiveTab('expenses')}>Ver todos</button>
                  </div>
                  <div className="expense-list-mini">
-                    {expenses.slice(0, 4).map(expense => (
-                      <div key={expense.id} className="mini-expense-item">
-                        <div className="expense-icon">{expense.category[0]}</div>
-                        <div className="expense-details">
-                          <p className="expense-desc">{expense.description}</p>
-                          <p className="expense-meta">{expense.category} • {expense.date}</p>
+                    {expenses.length === 0 ? (
+                      <p className="no-data">No hay movimientos registrados.</p>
+                    ) : (
+                      expenses.slice(0, 4).map(expense => (
+                        <div key={expense.id} className="mini-expense-item">
+                          <div className={`expense-icon ${expense.type === 'ingreso' ? 'income' : 'expense'}`}>
+                            {expense.type === 'ingreso' ? '+' : '-'}
+                          </div>
+                          <div className="expense-details">
+                            <p className="expense-desc">{expense.description}</p>
+                            <p className="expense-meta">{expense.category} • {formatDate(expense.date)}</p>
+                          </div>
+                          <p className={`expense-amount-mini ${expense.type === 'ingreso' ? 'income-text' : ''}`}>
+                            {expense.type === 'ingreso' ? '+' : '-'}${Number(expense.amount || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                          </p>
                         </div>
-                        <p className="expense-amount-mini">-${Number(expense.amount || 0).toFixed(2)}</p>
-                      </div>
-                    ))}
+                      ))
+                    )}
                  </div>
                </div>
             </div>
@@ -268,12 +295,13 @@ function App() {
             <div className="table-controls glass">
                <div className="search-box">
                   <Search size={18} />
-                  <input type="text" placeholder="Buscar gastos..." />
+                  <input type="text" placeholder="Buscar movimientos..." />
                </div>
                <div className="filters">
                   <select className="filter-select">
-                    <option>Categoría</option>
-                    {categories.map(c => <option key={c}>{c}</option>)}
+                    <option>Todo</option>
+                    <option value="ingreso">Ingresos</option>
+                    <option value="gasto">Gastos</option>
                   </select>
                </div>
             </div>
@@ -282,32 +310,37 @@ function App() {
                <table className="expenses-table">
                  <thead>
                    <tr>
-                     <th>Gasto</th>
+                     <th>Descripción</th>
                      <th>Categoría</th>
                      <th>Fecha</th>
                      <th>Monto</th>
-                     <th>Acción</th>
+                     <th>Tipo</th>
                    </tr>
                  </thead>
                  <tbody>
-                   {expenses.map(expense => (
-                     <tr key={expense.id}>
-                       <td>
-                         <div className="expense-name-cell">
-                            <span className="category-pill">{expense.category[0]}</span>
-                            <span>{expense.description}</span>
-                         </div>
-                       </td>
-                       <td>{expense.category}</td>
-                       <td>{expense.date}</td>
-                       <td className="amount-cell">-${Number(expense.amount || 0).toFixed(2)}</td>
-                       <td>
-                         <button className="btn-icon">
-                            <ArrowUpRight size={16} />
-                         </button>
-                       </td>
-                     </tr>
-                   ))}
+                    {expenses.length === 0 ? (
+                      <tr>
+                        <td colSpan="5" style={{ textAlign: 'center', padding: '2rem', color: '#64748b' }}>
+                          No se encontraron movimientos.
+                        </td>
+                      </tr>
+                    ) : (
+                      expenses.map(expense => (
+                        <tr key={expense.id}>
+                          <td>{expense.description}</td>
+                          <td>{expense.category}</td>
+                          <td>{formatDate(expense.date)}</td>
+                          <td className={`amount-cell ${expense.type === 'ingreso' ? 'income-text' : ''}`}>
+                            {expense.type === 'ingreso' ? '+' : '-'}${Number(expense.amount || 0).toLocaleString('es-ES', { minimumFractionDigits: 2 })}
+                          </td>
+                          <td>
+                            <span className={`type-badge ${expense.type === 'ingreso' ? 'income' : 'expense'}`}>
+                              {expense.type}
+                            </span>
+                          </td>
+                        </tr>
+                      ))
+                    )}
                  </tbody>
                </table>
             </div>
@@ -315,7 +348,6 @@ function App() {
         )}
       </main>
 
-      {/* Modal - Añadir Gasto */}
       <AnimatePresence>
         {showAddModal && (
           <motion.div 
@@ -331,13 +363,36 @@ function App() {
               className="modal-content glass glow-purple"
             >
               <div className="modal-header">
-                <h2>Añadir Gasto</h2>
+                <h2>Nueva Transacción</h2>
                 <button className="close-btn" onClick={() => setShowAddModal(false)}>
                   <X />
                 </button>
               </div>
               <form onSubmit={handleAddExpense} className="expense-form">
                 <div className="form-grid">
+                  <div className="form-group full-width">
+                    <label>Tipo</label>
+                    <div className="type-toggle">
+                       <input 
+                        type="radio" 
+                        id="type-gasto" 
+                        name="type" 
+                        value="gasto" 
+                        checked={modalType === 'gasto'} 
+                        onChange={() => setModalType('gasto')}
+                       />
+                       <label htmlFor="type-gasto">Gasto</label>
+                       <input 
+                        type="radio" 
+                        id="type-ingreso" 
+                        name="type" 
+                        value="ingreso" 
+                        checked={modalType === 'ingreso'}
+                        onChange={() => setModalType('ingreso')}
+                       />
+                       <label htmlFor="type-ingreso">Ingreso</label>
+                    </div>
+                  </div>
                   <div className="form-group">
                     <label>Monto</label>
                     <div className="input-with-icon">
@@ -348,12 +403,12 @@ function App() {
                   <div className="form-group">
                     <label>Categoría</label>
                     <select name="category" required>
-                      {categories.map(c => <option key={c} value={c}>{c}</option>)}
+                      {filteredCategories.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
                     </select>
                   </div>
                   <div className="form-group full-width">
                     <label>Descripción</label>
-                    <input name="description" type="text" required placeholder="Ej: Supermercado" />
+                    <input name="description" type="text" required placeholder="Ej: Sueldo o Supermercado" />
                   </div>
                   <div className="form-group full-width">
                     <label>Fecha</label>
@@ -361,7 +416,7 @@ function App() {
                   </div>
                 </div>
                 <button type="submit" className="btn btn-primary full-width glow-purple">
-                  Guardar Gasto
+                  Guardar Transacción
                 </button>
               </form>
             </motion.div>

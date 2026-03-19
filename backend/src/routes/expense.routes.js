@@ -3,20 +3,20 @@ const pool = require("../config/db");
 
 const router = express.Router();
 
-// Crear gasto
+// Crear gasto o ingreso
 router.post("/", async (req, res) => {
-  const { amount, category, description, date } = req.body;
+  const { amount, category, description, date, type = 'gasto' } = req.body;
 
   try {
     const result = await pool.query(
-      "INSERT INTO expenses (amount, category, description, date) VALUES ($1, $2, $3, $4) RETURNING *",
-      [amount, category, description, date]
+      "INSERT INTO expenses (amount, category, description, date, type) VALUES ($1, $2, $3, $4, $5) RETURNING *",
+      [amount, category, description, date, type]
     );
 
     res.status(201).json(result.rows[0]);
   } catch (error) {
     console.error(error);
-    res.status(500).json({ error: "Error creando gasto" });
+    res.status(500).json({ error: "Error creando transacción" });
   }
 });
 
