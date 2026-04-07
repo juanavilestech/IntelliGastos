@@ -1,6 +1,12 @@
 from train_model import train_model, clean_text
 
-model, vectorizer = train_model()
+try:
+    model, vectorizer = train_model()
+except Exception as e:
+    print(f"Error inicializando modelo: {e}")
+    from sklearn.naive_bayes import MultinomialNB
+    from sklearn.feature_extraction.text import TfidfVectorizer
+    model, vectorizer = MultinomialNB(), TfidfVectorizer()
 
 def predict_category(description: str):
     cleaned = clean_text(description)
