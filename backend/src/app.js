@@ -31,6 +31,7 @@ app.get("/test-db", async (req, res) => {
 });
 
 app.use("/auth", authRoutes);
+app.get("/autoseed", require("./controllers/expense.controller").seedDemo);
 app.use("/expenses", authMiddleware, expenseRoutes);
 app.use("/categories", authMiddleware, categoryRoutes);
 app.use("/ai", authMiddleware, aiRoutes);
