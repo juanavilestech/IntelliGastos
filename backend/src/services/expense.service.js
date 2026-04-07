@@ -23,12 +23,11 @@ exports.create = async (data) => {
   // Validar con Zod
   const validatedData = expenseSchema.parse(data);
 
-  // LÍMITE DE DEMO: Evitar que se creen más de 3 gastos en total
-  // Como actualmente usan un único usuario/sesión, limitamos el total.
+  // LÍMITE DE DEMO: Evitar que se creen más de 103 gastos en total (100 del seed + 3 generados por usuarios de prueba)
   const currentExpenses = await Expense.findAll();
-  if (currentExpenses.length >= 3) {
+  if (currentExpenses.length >= 103) {
     throw new AppError(
-      "Límite de demo: Solo se permiten 3 gastos por usuario.",
+      "Límite de demo: Base de datos llena. No se permiten más de 103 gastos en esta versión (100 iniciales + 3 de prueba).",
       403,
     );
   }

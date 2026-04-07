@@ -1,12 +1,4 @@
-const { Pool } = require("pg");
-
-const pool = new Pool({
-  host: "localhost",
-  port: 5432,
-  user: "postgres",
-  password: "admin123",
-  database: "gastos_db",
-});
+const pool = require("./src/config/db");
 
 const expensesCategories = [
   "Comida",
